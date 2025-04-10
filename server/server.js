@@ -2,20 +2,31 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const mongoose = require('mongoose');
-const { register, login } = require('./controllers/authController');
-const { getComments } = require('./controllers/commentController');
+const authRoutes = require('./routes/authRoutes');
+const commentRoutes = require('./routes/commentRoutes');
+const userRoutes = require('./routes/userRoutes');
+const scheduleRoutes = require('./routes/scheduleRoutes');
+const homeworkRoutes = require('./routes/homeworkRoutes');
+const setMatRoutes = require('./routes/setMatRoutes');
+const educMatRoutes = require('./routes/educMatRoutes');
+const applicationRoutes = require('./routes/applicationRoutes'); // Подключение роута для заявок
+const dotenv = require('dotenv');
+
+// Load environment variables from .env file
+dotenv.config();
 
 const app = express();
-const port = 3001;
+const port = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
-
-// Строка подключения к MongoDB
-const uri = 'mongodb+srv://admin:admin@cluster0.yb3vt.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads/images', express.static(path.join(__dirname, 'uploads/images')));
+app.use('/homework', express.static(path.join(__dirname, 'homework')));
 
 // Подключение к базе данных
+const uri = process.env.MONGODB_URI;
 mongoose.connect(uri)
     .then(() => {
         console.log('Successfully connected to MongoDB');
@@ -24,15 +35,16 @@ mongoose.connect(uri)
         console.error('Error connecting to MongoDB', err);
     });
 
-// Регистрация пользователя
-app.post('/register', register);
-
-// Вход пользователя
-app.post('/login', login);
-
-// Маршрут для получения комментариев из базы данных
-app.get('/api/comments/db', getComments);
+// Использование маршрутов
+app.use('/', authRoutes);
+app.use('/api/comments', commentRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/schedules', scheduleRoutes);
+app.use('/api/homework', homeworkRoutes);
+app.use('/api/setmat', setMatRoutes);
+app.use('/api/educmat', educMatRoutes);
+app.use('/api', applicationRoutes); // Подключение роута для заявок
 
 app.listen(port, () => {
-  console.log(`Сервер запущен на порту ${port}`);
+    console.log(`Сервер запущен на порту ${port}`);
 });

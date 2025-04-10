@@ -1,0 +1,265 @@
+.editing-main {
+    min-height: calc(100vh - 120px);
+    padding: 150px 0;
+}
+
+.editing-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.blocks-flex {
+    display: flex;
+    background-color: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    min-height: 700px;
+    max-height: 700px;
+}
+
+.sidebar-icons {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    padding: 20px 15px;
+    background-color: #2d2d2d;
+    position: relative;
+}
+
+.icon-container {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.icon-container:hover {
+    background-color: #3d3d3d;
+}
+
+.icon-container.active {
+    background-color: #FCCD3A;
+}
+
+.sidebar-icon {
+    width: 24px;
+    height: 24px;
+    filter: brightness(0) invert(1);
+}
+
+.icon-container.active .sidebar-icon {
+    filter: none;
+}
+
+.icon-tooltip {
+    position: absolute;
+    left: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    background-color: #333;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+    margin-left: 10px;
+    z-index: 10;
+}
+
+.icon-container:hover .icon-tooltip {
+    opacity: 1;
+}
+
+.content-area {
+    flex: 1;
+    display: flex;
+    /* padding: 20px;
+    gap: 20px; */
+}
+
+.editing-search-container {
+    max-width: min-content;
+    min-width: 300px;
+}
+
+.user-list-container {
+    background-color: #FCCD3A;
+    /* border-radius: 10px; */
+    overflow: hidden;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.section-header {
+    padding: 15px;
+    /* background-color: #e6b800; */
+    border-bottom: 1px solid #d9a800;
+}
+
+.section-header h3 {
+    margin: 0 0 10px 0;
+    color: #333;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.search-box {
+    position: relative;
+    width: 100%;
+}
+
+.search-input {
+    width: 100%;
+    padding: 8px 35px 8px 15px;
+    border: 1px solid #d9a800;
+    border-radius: 20px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.3s;
+    padding-left: 45px;
+}
+
+.search-input:focus {
+    border-color: #b38f00;
+}
+
+.search-icon {
+    position: absolute;
+    right: 10px;
+    top: 46%;
+    transform: translateY(-50%);
+    color: #666;
+}
+
+.user-list-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+.user-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.user-item {
+    padding: 12px 15px;
+    margin-bottom: 8px;
+    background-color: #fff;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.user-item:hover {
+    background-color: #f8f8f8;
+    transform: translateX(2px);
+}
+
+.user-item.selected {
+    background-color: #333;
+    color: white;
+}
+
+/* Добавлено это правило для белого ФИО */
+.user-item.selected .user-name {
+    color: white;
+}
+
+.user-item.selected .user-role-badge {
+    background-color: #555;
+    color: white;
+}
+
+.user-item.selected .user-role-badge.student {
+    background-color: #555;
+    color: white;
+}
+
+.user-name {
+    font-weight: 500;
+}
+
+.user-role-badge {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 10px;
+    background-color: #eee;
+    color: #555;
+}
+
+.user-role-badge.student {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.error-message {
+    color: #dc3545;
+    padding: 10px;
+    background-color: #f8d7da;
+    border-radius: 4px;
+    margin: 10px 0;
+}
+
+@media (max-width: 1200px) {
+    .blocks-flex{
+        min-height: 1200px;
+    }
+
+    .content-area {
+        flex-direction: column;
+    }
+    
+    .editing-search-container {
+        max-width: 100%;
+    }
+}
+
+@media (max-width: 768px) {
+    .blocks-flex {
+        flex-direction: column;
+        min-height: 1500px;
+    }
+    
+    .sidebar-icons {
+        flex-direction: row;
+        padding: 10px;
+        justify-content: center;
+    }
+    
+    .icon-tooltip {
+        display: none;
+    }
+}
+
+/*НАЧАЛО Скрывает панель список студентов */
+.toggle-container .sidebar-icon {
+    width: 20px;
+    height: 20px;
+    stroke-width: 2;
+}
+
+/* Для мобильных устройств можно скрывать панель по умолчанию */
+@media (max-width: 768px) {
+    .icon-90deg {
+        transform: rotate(90deg);
+    } 
+}
+/*КОНЕЦ Скрывает панель список студентов */
