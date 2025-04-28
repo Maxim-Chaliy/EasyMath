@@ -1,4 +1,4 @@
-const Homework = require('../models/homework');
+const Homework = require('../models/Homework');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -21,29 +21,31 @@ const upload = multer({ storage: storage });
 exports.addHomeworkItem = [
     upload.array('files'),
     async (req, res) => {
-        const { student_id, day, dueDate, answer, grade } = req.body;
-        const files = req.files.map(file => file.filename);
-
-        console.log('Files:', files); // Отладочное сообщение
-        console.log('Request Body:', req.body); // Отладочное сообщение
-
         try {
+            const { student_id, group_id, day, dueDate } = req.body;
+            const files = req.files ? req.files.map(file => file.filename) : [];
+
+            // Валидация данных
+            if (!student_id && !group_id) {
+                return res.status(400).json({ error: 'Необходимо указать student_id или group_id' });
+            }
+
             const newHomeworkItem = new Homework({
-                student_id,
+                student_id: student_id || undefined,
+                group_id: group_id || undefined,
                 day,
                 dueDate: new Date(dueDate),
                 files,
-                answer: answer ? answer.split(',') : [], // Преобразование answer в массив
-                grade: grade !== 'null' ? Number(grade) : undefined, // Преобразование grade в число или undefined
-                uploadedAt: new Date() // Автоматическое заполнение поля uploadedAt
+                answer: [],
+                grade: undefined, // Явно устанавливаем undefined вместо null
+                uploadedAt: new Date()
             });
 
             const savedHomeworkItem = await newHomeworkItem.save();
-            console.log('Saved Homework Item:', savedHomeworkItem); // Отладочное сообщение
             res.json(savedHomeworkItem);
         } catch (error) {
-            console.error('Error saving homework item:', error); // Отладочное сообщение
-            res.status(500).json({ error: 'Ошибка при добавлении домашнего задания' });
+            console.error('Error saving homework item:', error);
+            res.status(500).json({ error: error.message || 'Ошибка при добавлении домашнего задания' });
         }
     }
 ];
@@ -73,9 +75,78 @@ exports.uploadAnswer = [
 exports.getHomeworkByStudentId = async (req, res) => {
     try {
         const { studentId } = req.params;
-        const homeworks = await Homework.find({ student_id: studentId });
+        const homeworks = await Homework.find({ student_id: studentId })
+            .sort({ dueDate: 1 }); // Сортировка по дате выполнения
         res.json(homeworks);
     } catch (err) {
+        console.error('Error fetching homework:', err);
         res.status(500).json({ error: 'Ошибка при получении домашнего задания' });
+    }
+};
+
+
+// Получение домашних заданий для группы
+exports.getHomeworkByGroupId = async (req, res) => {
+    try {
+        const { groupId } = req.params;
+        const homeworks = await Homework.find({ group_id: groupId })
+            .sort({ dueDate: 1 }); // Сортировка по дате выполнения
+        res.json(homeworks);
+    } catch (err) {
+        console.error('Error fetching group homework:', err);
+        res.status(500).json({ error: 'Ошибка при получении домашних заданий для группы' });
+    }
+};
+
+// Обновление оценки домашнего задания
+exports.updateGrade = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { grade } = req.body;
+
+        const updatedHomework = await Homework.findByIdAndUpdate(
+            id,
+            { grade: grade || undefined },
+            { new: true }
+        );
+
+        if (!updatedHomework) {
+            return res.status(404).json({ error: 'Домашнее задание не найдено' });
+        }
+
+        res.json(updatedHomework);
+    } catch (error) {
+        console.error('Error updating grade:', error);
+        res.status(500).json({ error: 'Ошибка при обновлении оценки' });
+    }
+};
+
+// Обновление оценки студента для домашнего задания
+exports.updateStudentGrade = async (req, res) => {
+    try {
+        const { id, studentId } = req.params;
+        const { grade } = req.body;
+
+        const update = {};
+        if (grade !== null && grade !== undefined) {
+            update[`grades.${studentId}`] = grade;
+        } else {
+            update[`$unset`] = { [`grades.${studentId}`]: 1 };
+        }
+
+        const updatedHomework = await Homework.findByIdAndUpdate(
+            id,
+            update,
+            { new: true }
+        );
+
+        if (!updatedHomework) {
+            return res.status(404).json({ error: 'Домашнее задание не найдено' });
+        }
+
+        res.json(updatedHomework);
+    } catch (error) {
+        console.error('Error updating student grade:', error);
+        res.status(500).json({ error: 'Ошибка при обновлении оценки студента' });
     }
 };
