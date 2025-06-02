@@ -18,25 +18,30 @@ import Employment from "./Pages/Employment";
 import VerifyEmail from "./Pages/VerifyEmail";
 import AdminRoute from './Components/AdminRoute';
 import PrivateRoute from './Components/PrivateRoute';
+import ForgotPassword from './Pages/ForgotPassword';
+import ResetPassword from './Pages/ResetPassword';
 
 const App = () => {
   return (
     <Router>
       <ScrollTop />
       <Routes>
-        <Route path="/" element={<Navigate to="/home"/>}/>
-        <Route path="/home" element={<Home />} />
+        {/* <Route path="/" element={<Navigate to="/home"/>}/> */}
+        <Route path="/" element={<Home />} />
         <Route path="/reviews" element={<Reviews />} />
         <Route path="/registration" element={<Registration/>} />
         <Route path="/authorization" element={<Authorization/>} />
         <Route path="/appform" element={<AppForm/>} />
         <Route path="/verify-email" element={<VerifyEmail/>} />
+        <Route path="/forgot-password" element={<ForgotPassword/>} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/educmat" element={<EducMat/>} />
 
         {/* Защищенные маршруты для авторизованных пользователей */}
         <Route element={<PrivateRoute />}>
           <Route path="/schedule" element={<Schedule/>} />
           <Route path="/appform" element={<AppForm/>} />
-          <Route path="/educmat" element={<EducMat/>} />
+          
 
           {/* Защищенные маршруты для админов */}
           <Route element={<AdminRoute />}>

@@ -14,7 +14,7 @@ const Employment = () => {
   const [viewMode, setViewMode] = useState("day");
   const [timeIntervals, setTimeIntervals] = useState([]);
   const [weekSchedule, setWeekSchedule] = useState([]);
-  const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date()));
+  const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [modal, setModal] = useState({
     show: false,
     type: '',
@@ -57,10 +57,33 @@ const Employment = () => {
       const weekResponses = await Promise.all(weekPromises);
       const weekData = weekResponses.map(res => res.data);
 
-      setWeekSchedule(weekData.map((dayData, index) => ({
-        date: weekDays[index],
-        intervals: generateIntervals(dayData.schedules)
-      })));
+      const weekDataProcessed = weekData.map((dayData, index) => {
+        const intervals = generateIntervals(dayData.schedules);
+        const hours = Array(24).fill(null);
+
+        intervals.forEach(interval => {
+          if (interval.type === 'booked') {
+            const startHour = parseInt(interval.start.split(':')[0], 10);
+            const rowSpan = Math.ceil(interval.duration / 60);
+            for (let h = startHour; h < startHour + rowSpan; h++) {
+              if (h >= 24) break;
+              if (h === startHour) {
+                hours[h] = { ...interval, rowSpan };
+              } else {
+                hours[h] = { placeholder: true };
+              }
+            }
+          }
+        });
+
+        return {
+          date: weekDays[index],
+          intervals,
+          hours
+        };
+      });
+
+      setWeekSchedule(weekDataProcessed);
     } catch (error) {
       console.error('Error fetching weekly schedule:', error);
     }
@@ -116,7 +139,7 @@ const Employment = () => {
   };
 
   const minutesToTime = (totalMinutes) => {
-    const hours = Math.floor(totalMinutes / 60);
+    const hours = Math.floor(totalMinutes / 60) % 24; // Use modulo to wrap around after 24 hours
     const minutes = totalMinutes % 60;
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
   };
@@ -142,7 +165,7 @@ const Employment = () => {
   };
 
   const handleWeekDateChange = (e) => {
-    setCurrentWeekStart(startOfWeek(new Date(e.target.value)));
+    setCurrentWeekStart(startOfWeek(new Date(e.target.value), { weekStartsOn: 1 }));
   };
 
   const getFullName = (student) => {
@@ -262,61 +285,63 @@ const Employment = () => {
               </tr>
             </thead>
             <tbody>
-              {Array.from({ length: 24 }).map((_, hour) => {
-                const timeLabel = `${hour}:00`;
-                return (
-                  <tr key={hour}>
-                    <td className="time-cell">{timeLabel}</td>
-                    {weekDays.map((day, dayIndex) => {
-                      const daySchedule = weekSchedule[dayIndex];
-                      const hourIntervals = daySchedule?.intervals.filter(
-                        interval => interval.start.startsWith(timeLabel.substring(0, 2))
-                      );
+              {Array.from({ length: 24 }).map((_, hour) => (
+                <tr key={hour}>
+                  <td className="time-cell">{hour}:00</td>
+                  {weekDays.map((day, dayIndex) => {
+                    const daySchedule = weekSchedule[dayIndex];
+                    const hourInfo = daySchedule?.hours[hour];
 
-                      return (
-                        <td key={dayIndex} className="day-cell">
-                          {hourIntervals?.map((interval, i) => (
-                            <div
-                              key={i}
-                              className={`week-interval ${interval.type}`}
-                            >
-                              {interval.type === 'booked' && (
-                                <div className="week-lesson-info">
-                                  <div className="week-student-name">
-                                    {interval.lesson.student_id ?
-                                      getFullName(interval.lesson.student_id) :
-                                      interval.lesson.group_id.name}
-                                  </div>
-                                  <div className="week-subject">
-                                    {interval.lesson.subject}
-                                  </div>
-                                  <div className="week-time">
-                                    {interval.start}-{interval.end}
-                                  </div>
-                                  <div className="week-actions">
-                                    <button
-                                      className="week-action-button reschedule"
-                                      onClick={() => showModal('reschedule', interval.lesson)}
-                                    >
-                                      Перенести
-                                    </button>
-                                    <button
-                                      className="week-action-button cancel"
-                                      onClick={() => showModal('cancel', interval.lesson)}
-                                    >
-                                      Отменить
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
+                    if (hourInfo?.placeholder) {
+                      return null;
+                    }
+
+                    return (
+                      <td
+                        key={dayIndex}
+                        className="day-cell"
+                        rowSpan={hourInfo?.rowSpan || 1}
+                      >
+                        {hourInfo ? (
+                          <div className={`week-interval ${hourInfo.type}`}>
+                            <div className="week-lesson-info">
+                              <div className="week-student-name">
+                                {hourInfo.lesson.student_id
+                                  ? getFullName(hourInfo.lesson.student_id)
+                                  : hourInfo.lesson.group_id?.name || 'Unknown'}
+                              </div>
+                              <div className="week-subject">
+                                {hourInfo.lesson.subject}
+                              </div>
+                              <div className="week-time">
+                                {hourInfo.start}-{hourInfo.end}
+                              </div>
+                              <div className="week-actions">
+                                <button
+                                  className="week-action-button reschedule"
+                                  onClick={() => showModal('reschedule', hourInfo.lesson)}
+                                >
+                                  Перенести
+                                </button>
+                                <button
+                                  className="week-action-button cancel"
+                                  onClick={() => showModal('cancel', hourInfo.lesson)}
+                                >
+                                  Отменить
+                                </button>
+                              </div>
                             </div>
-                          ))}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                );
-              })}
+                          </div>
+                        ) : (
+                          <div className="week-interval free">
+                            <div className="free-label">-</div>
+                          </div>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -381,8 +406,8 @@ const Employment = () => {
                   <div className="interval-content">
                     {interval.type === "booked" ? (
                       <>
-                        <div className="student-name" title={interval.lesson.student_id ? getFullName(interval.lesson.student_id) : interval.lesson.group_id.name}>
-                          {interval.lesson.student_id ? getFullName(interval.lesson.student_id) : interval.lesson.group_id.name}
+                        <div className="student-name" title={interval.lesson.student_id ? getFullName(interval.lesson.student_id) : interval.lesson.group_id?.name || 'Unknown'}>
+                          {interval.lesson.student_id ? getFullName(interval.lesson.student_id) : interval.lesson.group_id?.name || 'Unknown'}
                         </div>
                         <div className="subject" title={interval.lesson.subject}>
                           {interval.lesson.subject}
@@ -431,7 +456,7 @@ const Employment = () => {
                     <input
                       type="date"
                       value={modal.newDate}
-                      onChange={(e) => setModal({...modal, newDate: e.target.value})}
+                      onChange={(e) => setModal({ ...modal, newDate: e.target.value })}
                     />
                   </label>
                   <label>
@@ -439,7 +464,7 @@ const Employment = () => {
                     <input
                       type="time"
                       value={modal.newTime}
-                      onChange={(e) => setModal({...modal, newTime: e.target.value})}
+                      onChange={(e) => setModal({ ...modal, newTime: e.target.value })}
                     />
                   </label>
                 </div>
@@ -447,7 +472,7 @@ const Employment = () => {
 
               <div className="modal-lesson-info">
                 <p><strong>Текущее время:</strong> {modal.lesson.time} - {modal.lesson.endTime}</p>
-                <p><strong>Студент:</strong> {modal.lesson.student_id ? getFullName(modal.lesson.student_id) : modal.lesson.group_id.name}</p>
+                <p><strong>Студент:</strong> {modal.lesson.student_id ? getFullName(modal.lesson.student_id) : modal.lesson.group_id?.name || 'Unknown'}</p>
                 <p><strong>Предмет:</strong> {modal.lesson.subject}</p>
                 <p><strong>Длительность:</strong> {modal.lesson.duration} мин.</p>
               </div>

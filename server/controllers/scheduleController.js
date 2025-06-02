@@ -1,4 +1,6 @@
 const Schedule = require('../models/Schedule');
+const mongoose = require('mongoose');
+
 
 // Получение расписания для конкретного студента
 exports.getScheduleByStudentId = async (req, res) => {
@@ -29,7 +31,7 @@ exports.getGroupScheduleWithStudents = async (req, res) => {
     try {
         const { groupId } = req.params;
         const group = await mongoose.model('Group').findById(groupId).populate('students');
-        
+
         if (!group) {
             return res.status(404).json({ message: 'Group not found' });
         }
@@ -65,6 +67,45 @@ exports.addScheduleItem = async (req, res) => {
             });
         }
 
+        // Преобразуем время для проверки
+        const newDate = new Date(date);
+        const newEndTime = calculateEndTime(time, duration);
+
+        // Ищем ВСЕ занятия на эту дату (и групповые, и индивидуальные)
+        const existingSchedules = await Schedule.find({
+            date: {
+                $gte: new Date(newDate.setHours(0, 0, 0, 0)),
+                $lte: new Date(newDate.setHours(23, 59, 59, 999))
+            }
+        });
+
+        // Функция для преобразования времени в минуты
+        const toMinutes = (timeStr) => {
+            const [hours, minutes] = timeStr.split(':').map(Number);
+            return hours * 60 + minutes;
+        };
+
+        const newStart = toMinutes(time);
+        const newEnd = toMinutes(newEndTime);
+
+        const hasConflict = existingSchedules.some(item => {
+            // Исключаем текущую запись при обновлении
+            if (req.params.id && item._id.toString() === req.params.id) {
+                return false;
+            }
+
+            const existingStart = toMinutes(item.time);
+            const existingEnd = toMinutes(calculateEndTime(item.time, item.duration));
+
+            return (newStart < existingEnd && newEnd > existingStart);
+        });
+
+        if (hasConflict) {
+            return res.status(400).json({
+                error: 'В выбранное время уже есть занятие. Пожалуйста, выберите другое время.'
+            });
+        }
+
         const newScheduleItem = new Schedule({
             student_id,
             group_id,
@@ -74,9 +115,10 @@ exports.addScheduleItem = async (req, res) => {
             duration: parseInt(duration),
             subject,
             description: description || '',
-            // Для индивидуальных занятий сразу проставляем посещаемость как false
-            attendance: student_id ? false : null
+            attendance: student_id ? false : null,
+            grade: null // Добавьте это поле
         });
+
 
         const savedScheduleItem = await newScheduleItem.save();
         res.status(201).json(savedScheduleItem);
@@ -87,6 +129,15 @@ exports.addScheduleItem = async (req, res) => {
         });
     }
 };
+
+// Вспомогательная функция для расчета времени окончания
+function calculateEndTime(startTime, duration) {
+    const [hours, minutes] = startTime.split(':').map(Number);
+    const totalMinutes = hours * 60 + minutes + duration;
+    const endHours = Math.floor(totalMinutes / 60) % 24;
+    const endMinutes = totalMinutes % 60;
+    return `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
+}
 
 // Обновление посещаемости (универсальное - для групп и индивидуальных занятий)
 exports.updateAttendance = async (req, res) => {
@@ -102,7 +153,7 @@ exports.updateAttendance = async (req, res) => {
         // Если это индивидуальное занятие
         if (scheduleItem.student_id) {
             scheduleItem.attendance = attendance;
-        } 
+        }
         // Если это групповое занятие и передан studentId
         else if (scheduleItem.group_id && studentId) {
             if (!scheduleItem.attendance) {
@@ -202,6 +253,7 @@ exports.updateScheduleItem = async (req, res) => {
     }
 };
 
+
 // Удаление записи из расписания
 exports.deleteScheduleItem = async (req, res) => {
     try {
@@ -272,3 +324,74 @@ function getShortDayOfWeek(date) {
     const daysOfWeek = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
     return daysOfWeek[dateObj.getDay()];
 }
+
+exports.updateGrade = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { grade } = req.body;
+
+        // Убедитесь, что id является допустимым ObjectId
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ error: 'Неверный идентификатор записи' });
+        }
+
+        const updatedItem = await Schedule.findByIdAndUpdate(
+            id,
+            { grade, updatedAt: Date.now() },
+            { new: true }
+        );
+
+        if (!updatedItem) {
+            return res.status(404).json({ error: 'Занятие не найдено' });
+        }
+
+        res.json(updatedItem);
+    } catch (error) {
+        console.error('Ошибка при обновлении оценки:', error);
+        res.status(500).json({
+            error: 'Ошибка при обновлении оценки',
+            details: error.message
+        });
+    }
+};
+
+// Обновление оценок для группы
+exports.updateGroupGrades = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { grades } = req.body;
+
+        const scheduleItem = await Schedule.findById(id);
+        if (!scheduleItem) {
+            return res.status(404).json({ error: 'Занятие не найдено' });
+        }
+
+        if (!scheduleItem.group_id) {
+            return res.status(400).json({
+                error: 'Это индивидуальное занятие. Используйте другой метод'
+            });
+        }
+
+        scheduleItem.grade_group = grades;
+        scheduleItem.markModified('grade_group');
+        scheduleItem.updatedAt = Date.now();
+        const updatedItem = await scheduleItem.save();
+
+        res.json(updatedItem);
+    } catch (error) {
+        res.status(500).json({
+            error: 'Ошибка при обновлении оценок группы',
+            details: error.message
+        });
+    }
+};
+
+// В scheduleController.js
+exports.getAllStats = async (req, res) => {
+    try {
+        const stats = await Schedule.find({}); // Получаем все записи
+        res.json(stats);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};

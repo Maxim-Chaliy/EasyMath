@@ -12,6 +12,7 @@ const ScheduleEditor = ({ selectedUser, selectedGroup }) => {
     const [editing, setEditing] = useState(null);
     const [editValues, setEditValues] = useState({});
     const [selectedItems, setSelectedItems] = useState([]);
+    const [selectedHomeworkItems, setSelectedHomeworkItems] = useState([]);
     const [mode, setMode] = useState('lessons');
     const [isAddingHomework, setIsAddingHomework] = useState(false);
     const [editingGrade, setEditingGrade] = useState(null);
@@ -51,19 +52,48 @@ const ScheduleEditor = ({ selectedUser, selectedGroup }) => {
             return;
         }
 
-        const dateObj = new Date(dateInput);
-        const dayOfWeek = getShortDayOfWeek(dateObj);
+        const newDate = new Date(dateInput);
+        const newStartTime = timeInput;
+        const newDuration = parseInt(durationInput) || 60;
+        const newEndTime = calculateEndTime(newStartTime, newDuration);
+
+        const hasConflict = schedule.some(item => {
+            const itemDate = new Date(item.date);
+            if (itemDate.toDateString() !== newDate.toDateString()) {
+                return false;
+            }
+
+            const toMinutes = (timeStr) => {
+                const [hours, minutes] = timeStr.split(':').map(Number);
+                return hours * 60 + minutes;
+            };
+
+            const newStart = toMinutes(newStartTime);
+            const newEnd = toMinutes(newEndTime);
+            const existStart = toMinutes(item.time);
+            const existEnd = toMinutes(calculateEndTime(item.time, item.duration));
+
+            return (newStart < existEnd && newEnd > existStart);
+        });
+
+        if (hasConflict) {
+            alert('Ошибка: В выбранное время уже есть занятие. Пожалуйста, выберите другое время.');
+            return;
+        }
+
+        const dayOfWeek = getShortDayOfWeek(newDate);
 
         const newScheduleItem = {
             student_id: selectedUser ? selectedUser._id : null,
             group_id: selectedGroup ? selectedGroup._id : null,
             day: dayOfWeek,
-            date: dateObj,
-            time: timeInput,
-            duration: parseInt(durationInput) || 60,
+            date: newDate,
+            time: newStartTime,
+            duration: newDuration,
             subject: subjectInput,
             description: descriptionInput || '',
-            attendance: false
+            attendance: false,
+            grade: null
         };
 
         try {
@@ -83,11 +113,37 @@ const ScheduleEditor = ({ selectedUser, selectedGroup }) => {
                 document.getElementById('durationInput').value = '60';
                 document.getElementById('descriptionInput').value = '';
             } else {
-                throw new Error('Ошибка при добавлении занятия в расписание');
+                const errorData = await response.json();
+                alert(errorData.error || 'Ошибка при добавлении занятия в расписание');
             }
         } catch (error) {
             console.error('Ошибка при добавлении занятия в расписание:', error);
-            alert('Не удалось добавить занятие');
+            alert(error.message || 'Не удалось добавить занятие');
+        }
+    };
+
+    const handleSaveGrade = async (id) => {
+        try {
+            const response = await fetch(`http://localhost:3001/api/schedules/${id}/updateGrade`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ grade: gradeValue }),
+            });
+
+            if (response.ok) {
+                const updatedScheduleItem = await response.json();
+                setSchedule(schedule.map(item => item._id === id ? updatedScheduleItem : item));
+                setEditingGrade(null);
+                setGradeValue('');
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Ошибка при сохранении оценки');
+            }
+        } catch (error) {
+            console.error('Ошибка при сохранении оценки:', error);
+            alert(error.message || 'Не удалось сохранить оценку');
         }
     };
 
@@ -153,23 +209,16 @@ const ScheduleEditor = ({ selectedUser, selectedGroup }) => {
         }
     };
 
-    const handleEditGrade = (id, currentGrade) => {
-        setEditingGrade(id);
-        setGradeValue(currentGrade || '');
-    };
-
-    const handleGradeChange = (e) => {
-        setGradeValue(e.target.value);
-    };
-
-    const handleSaveGrade = async (id) => {
+    const handleSaveHomeworkGrade = async (id, studentId) => {
         try {
-            const response = await fetch(`http://localhost:3001/api/homework/${id}/grade`, {
+            const gradeValueToSave = gradeValue ? parseInt(gradeValue) : null;
+
+            const response = await fetch(`http://localhost:3001/api/homework/${id}/grade/${studentId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ grade: gradeValue ? parseInt(gradeValue) : null }),
+                body: JSON.stringify({ grade: gradeValueToSave }),
             });
 
             if (response.ok) {
@@ -186,11 +235,6 @@ const ScheduleEditor = ({ selectedUser, selectedGroup }) => {
             console.error('Ошибка при сохранении оценки:', error);
             alert('Не удалось сохранить оценку');
         }
-    };
-
-    const handleCancelGradeEdit = () => {
-        setEditingGrade(null);
-        setGradeValue('');
     };
 
     const handleEdit = (id) => {
@@ -221,6 +265,33 @@ const ScheduleEditor = ({ selectedUser, selectedGroup }) => {
                 day: getShortDayOfWeek(new Date(editValues.date)),
                 duration: parseInt(editValues.duration) || 60
             };
+
+            const hasConflict = schedule.some(item => {
+                if (item._id === editing) return false;
+
+                const itemDate = new Date(item.date);
+                const updatedDate = new Date(updatedItem.date);
+                if (itemDate.toDateString() !== updatedDate.toDateString()) {
+                    return false;
+                }
+
+                const toMinutes = (timeStr) => {
+                    const [hours, minutes] = timeStr.split(':').map(Number);
+                    return hours * 60 + minutes;
+                };
+
+                const newStart = toMinutes(updatedItem.time);
+                const newEnd = toMinutes(calculateEndTime(updatedItem.time, updatedItem.duration));
+                const existStart = toMinutes(item.time);
+                const existEnd = toMinutes(calculateEndTime(item.time, item.duration));
+
+                return (newStart < existEnd && newEnd > existStart);
+            });
+
+            if (hasConflict) {
+                alert('Ошибка: В выбранное время уже есть занятие. Пожалуйста, выберите другое время.');
+                return;
+            }
 
             try {
                 const response = await fetch(`http://localhost:3001/api/schedules/${editing}`, {
@@ -307,6 +378,62 @@ const ScheduleEditor = ({ selectedUser, selectedGroup }) => {
         );
     };
 
+    const handleDeleteHomework = async (id) => {
+        if (!window.confirm('Вы уверены, что хотите удалить это домашнее задание?')) return;
+
+        try {
+            const response = await fetch(`http://localhost:3001/api/homework/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            if (response.ok) {
+                setHomework(homework.filter(item => item._id !== id));
+                setSelectedHomeworkItems(selectedHomeworkItems.filter(itemId => itemId !== id));
+            } else {
+                throw new Error('Ошибка при удалении домашнего задания');
+            }
+        } catch (error) {
+            console.error('Ошибка при удалении домашнего задания:', error);
+            alert('Не удалось удалить домашнее задание');
+        }
+    };
+
+    const handleDeleteSelectedHomework = async () => {
+        if (selectedHomeworkItems.length === 0) return;
+        if (!window.confirm(`Вы уверены, что хотите удалить ${selectedHomeworkItems.length} выбранных заданий?`)) return;
+
+        try {
+            const response = await fetch('http://localhost:3001/api/homework/deleteMultiple', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ ids: selectedHomeworkItems }),
+            });
+
+            if (response.ok) {
+                setHomework(homework.filter(item => !selectedHomeworkItems.includes(item._id)));
+                setSelectedHomeworkItems([]);
+            } else {
+                throw new Error('Ошибка при удалении заданий');
+            }
+        } catch (error) {
+            console.error('Ошибка при удалении заданий:', error);
+            alert('Не удалось удалить выбранные задания');
+        }
+    };
+
+    const handleSelectHomeworkItem = (id) => {
+        setSelectedHomeworkItems(prevSelectedItems =>
+            prevSelectedItems.includes(id)
+                ? prevSelectedItems.filter(itemId => itemId !== id)
+                : [...prevSelectedItems, id]
+        );
+    };
+
     const formatDate = (dateString) => {
         if (!dateString) return '';
         const date = new Date(dateString);
@@ -335,8 +462,11 @@ const ScheduleEditor = ({ selectedUser, selectedGroup }) => {
         return `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
     };
 
-    const getFileIcon = (file) => {
-        const extension = file.split('.').pop().toLowerCase();
+    const getFileIcon = (filename) => {
+        if (!filename) return <BsFiletypeTxt className="file-icon" />;
+        const extension = typeof filename === 'string'
+            ? filename.split('.').pop().toLowerCase()
+            : '';
         switch (extension) {
             case 'txt': return <BsFiletypeTxt className="file-icon" />;
             case 'docx': return <BsFiletypeDocx className="file-icon" />;
@@ -365,13 +495,13 @@ const ScheduleEditor = ({ selectedUser, selectedGroup }) => {
                 </h3>
                 <div className='mode-switcher'>
                     <button
-                        className={`mode-button ${mode === 'lessons' ? 'active' : ''}`}
+                        className={`mode-button-scheduleeditor ${mode === 'lessons' ? 'active' : ''}`}
                         onClick={() => setMode('lessons')}
                     >
                         Занятия
                     </button>
                     <button
-                        className={`mode-button ${mode === 'homework' ? 'active' : ''}`}
+                        className={`mode-button-scheduleeditor ${mode === 'homework' ? 'active' : ''}`}
                         onClick={() => setMode('homework')}
                     >
                         Домашнее задание
@@ -451,6 +581,7 @@ const ScheduleEditor = ({ selectedUser, selectedGroup }) => {
                                     <th>Предмет</th>
                                     <th>Описание</th>
                                     <th style={{ width: '100px' }}>Посещаемость</th>
+                                    <th style={{ width: '100px' }}>Оценка</th>
                                     <th style={{ width: '120px' }}>Действия</th>
                                 </tr>
                             </thead>
@@ -488,19 +619,88 @@ const ScheduleEditor = ({ selectedUser, selectedGroup }) => {
                                                     </label>
                                                 </td>
                                                 <td>
+                                                    <div className='grade-edit-container'>
+                                                        {editingGrade === item._id ? (
+                                                            <>
+                                                                <input
+                                                                    type="number"
+                                                                    min="1"
+                                                                    max="5"
+                                                                    value={gradeValue}
+                                                                    onChange={(e) => setGradeValue(e.target.value)}
+                                                                    className="grade-input"
+                                                                />
+                                                                <button
+                                                                    onClick={() => handleSaveGrade(item._id)}
+                                                                    className="scheduleeditor-action-button save-button"
+                                                                >
+                                                                    <FiCheck />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setEditingGrade(null);
+                                                                        setGradeValue('');
+                                                                    }}
+                                                                    className="scheduleeditor-action-button cancel-button"
+                                                                >
+                                                                    <FiX />
+                                                                </button>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                {item.grade ? (
+                                                                    <span className={`grade-badge grade-${item.grade}`}>
+                                                                        {item.grade}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span>-</span>
+                                                                )}
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setEditingGrade(item._id);
+                                                                        setGradeValue(item.grade || '');
+                                                                    }}
+                                                                    className="scheduleeditor-action-button edit-button"
+                                                                >
+                                                                    <FiEdit2 />
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td>
                                                     <div className="row-actions">
-                                                        <button
-                                                            onClick={() => handleEdit(item._id)}
-                                                            className="action-button edit-button"
-                                                        >
-                                                            <FiEdit2 />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDelete(item._id)}
-                                                            className="action-button delete-button"
-                                                        >
-                                                            <FiTrash2 />
-                                                        </button>
+                                                        {editing === item._id ? (
+                                                            <>
+                                                                <button
+                                                                    onClick={handleSave}
+                                                                    className="scheduleeditor-action-button save-button"
+                                                                >
+                                                                    <FiCheck />
+                                                                </button>
+                                                                <button
+                                                                    onClick={handleCancel}
+                                                                    className="scheduleeditor-action-button cancel-button"
+                                                                >
+                                                                    <FiX />
+                                                                </button>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <button
+                                                                    onClick={() => handleEdit(item._id)}
+                                                                    className="scheduleeditor-action-button edit-button"
+                                                                >
+                                                                    <FiEdit2 />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleDelete(item._id)}
+                                                                    className="scheduleeditor-action-button delete-button"
+                                                                >
+                                                                    <FiTrash2 />
+                                                                </button>
+                                                            </>
+                                                        )}
                                                     </div>
                                                 </td>
                                             </tr>
@@ -562,20 +762,6 @@ const ScheduleEditor = ({ selectedUser, selectedGroup }) => {
                                                                         placeholder="Дополнительная информация"
                                                                     />
                                                                 </div>
-                                                                <div className="edit-card-actions">
-                                                                    <button
-                                                                        onClick={handleSave}
-                                                                        className="action-button save-button"
-                                                                    >
-                                                                        <FiCheck /> Сохранить
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={handleCancel}
-                                                                        className="action-button cancel-button"
-                                                                    >
-                                                                        <FiX /> Отменить
-                                                                    </button>
-                                                                </div>
                                                             </div>
                                                         </div>
                                                     </td>
@@ -601,6 +787,15 @@ const ScheduleEditor = ({ selectedUser, selectedGroup }) => {
                         >
                             {isAddingHomework ? 'Отменить' : 'Добавить задание'}
                         </button>
+
+                        {selectedHomeworkItems.length > 0 && (
+                            <button
+                                onClick={handleDeleteSelectedHomework}
+                                className="delete-selected-button"
+                            >
+                                <FiTrash2 /> Удалить выбранные ({selectedHomeworkItems.length})
+                            </button>
+                        )}
                     </div>
 
                     {isAddingHomework && (
@@ -634,17 +829,27 @@ const ScheduleEditor = ({ selectedUser, selectedGroup }) => {
                         <table className="homework-table">
                             <thead>
                                 <tr>
+                                    <th style={{ width: '40px' }}></th>
                                     <th>День</th>
                                     <th>Выполнить до</th>
                                     <th>Файлы задания</th>
                                     <th>Ответ</th>
                                     <th>Оценка</th>
+                                    <th style={{ width: '80px' }}>Действия</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {homework.length > 0 ? (
                                     homework.map((item) => (
                                         <tr key={item._id}>
+                                            <td>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedHomeworkItems.includes(item._id)}
+                                                    onChange={() => handleSelectHomeworkItem(item._id)}
+                                                    className="row-checkbox"
+                                                />
+                                            </td>
                                             <td>{item.day}</td>
                                             <td>{formatDate(item.dueDate)}</td>
                                             <td>
@@ -668,17 +873,17 @@ const ScheduleEditor = ({ selectedUser, selectedGroup }) => {
                                             <td>
                                                 {item.answer && item.answer.length > 0 ? (
                                                     <div className="files-list">
-                                                        {item.answer.map((file, idx) => (
+                                                        {item.answer.map((answer, idx) => (
                                                             <div key={idx} className="file-item">
-                                                                {getFileIcon(file)}
+                                                                {getFileIcon(answer.file)}
                                                                 <a
-                                                                    href={`http://localhost:3001/homework/${file}`}
+                                                                    href={`http://localhost:3001/homework/${answer.file}`}
                                                                     target="_blank"
                                                                     rel="noopener noreferrer"
                                                                     download
                                                                     className="file-link"
                                                                 >
-                                                                    {file}
+                                                                    {answer.file}
                                                                 </a>
                                                             </div>
                                                         ))}
@@ -693,21 +898,24 @@ const ScheduleEditor = ({ selectedUser, selectedGroup }) => {
                                                         <input
                                                             type="number"
                                                             value={gradeValue}
-                                                            onChange={handleGradeChange}
+                                                            onChange={(e) => setGradeValue(e.target.value)}
                                                             className="grade-input"
                                                             min="1"
                                                             max="5"
                                                         />
                                                         <div className="grade-edit-actions">
                                                             <button
-                                                                onClick={() => handleSaveGrade(item._id)}
-                                                                className="action-button save-button"
+                                                                onClick={() => handleSaveHomeworkGrade(item._id, selectedUser._id)}
+                                                                className="scheduleeditor-action-button save-button"
                                                             >
                                                                 <FiCheck />
                                                             </button>
                                                             <button
-                                                                onClick={handleCancelGradeEdit}
-                                                                className="action-button cancel-button"
+                                                                onClick={() => {
+                                                                    setEditingGrade(null);
+                                                                    setGradeValue('');
+                                                                }}
+                                                                className="scheduleeditor-action-button cancel-button"
                                                             >
                                                                 <FiX />
                                                             </button>
@@ -715,25 +923,40 @@ const ScheduleEditor = ({ selectedUser, selectedGroup }) => {
                                                     </div>
                                                 ) : (
                                                     <div className="grade-display">
-                                                        {item.grade ? (
-                                                            <span className="grade-badge">{item.grade}</span>
+                                                        {item.grades?.[selectedUser._id] ? (
+                                                            <span className={`grade-badge grade-${item.grades[selectedUser._id]}`}>
+                                                                {item.grades[selectedUser._id]}
+                                                            </span>
                                                         ) : (
                                                             <span className="no-grade">-</span>
                                                         )}
-                                                        <button
-                                                            onClick={() => handleEditGrade(item._id, item.grade)}
-                                                            className="action-button edit-button"
-                                                        >
-                                                            <FiEdit2 />
-                                                        </button>
+                                                        {selectedUser && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    setEditingGrade(item._id);
+                                                                    setGradeValue(item.grades?.[selectedUser._id] || '');
+                                                                }}
+                                                                className="scheduleeditor-action-button edit-button"
+                                                            >
+                                                                <FiEdit2 />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 )}
+                                            </td>
+                                            <td>
+                                                <button
+                                                    onClick={() => handleDeleteHomework(item._id)}
+                                                    className="scheduleeditor-action-button delete-button"
+                                                >
+                                                    <FiTrash2 />
+                                                </button>
                                             </td>
                                         </tr>
                                     ))
                                 ) : (
                                     <tr className="no-data-row">
-                                        <td colSpan="5">Нет данных о домашних заданиях</td>
+                                        <td colSpan="7">Нет данных о домашних заданиях</td>
                                     </tr>
                                 )}
                             </tbody>

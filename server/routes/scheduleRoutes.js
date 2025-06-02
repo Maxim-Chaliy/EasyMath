@@ -29,4 +29,13 @@ router.delete('/:id', scheduleController.deleteScheduleItem);
 // Массовое удаление занятий
 router.post('/deleteMultiple', scheduleController.deleteMultipleScheduleItems);
 
+// Обновление оценки
+router.put('/:id/updateGrade', scheduleController.updateGrade);
+
+// Обновление оценок для группы
+router.put('/:id/updateGroupGrades', scheduleController.updateGroupGrades);
+
+// Статистика занятий
+router.get('/stats', scheduleController.getAllStats);
+
 module.exports = router;

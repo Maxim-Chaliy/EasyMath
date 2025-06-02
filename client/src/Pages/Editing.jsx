@@ -17,12 +17,21 @@ const Editing = () => {
     const [searchQuery, setSearchQuery] = useState("");
     const [activeImage, setActiveImage] = useState(1);
     const [selectedUser, setSelectedUser] = useState(null);
-    const [selectedGroup, setSelectedGroup] = useState(null); // Убедитесь, что эта функция определена
+    const [selectedGroup, setSelectedGroup] = useState(null);
     const [schedule, setSchedule] = useState([]);
     const [activeComponent, setActiveComponent] = useState('UserInfo');
     const [sectionTitle, setSectionTitle] = useState("Пользователи");
     const [selectedStudentId, setSelectedStudentId] = useState(null);
     const [showSearchContainer, setShowSearchContainer] = useState(true);
+    const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+
+    const months = [
+        "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+        "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
+    ];
+
+    const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i);
 
     useEffect(() => {
         const savedActiveImage = localStorage.getItem('activeImage');
@@ -138,6 +147,82 @@ const Editing = () => {
             }
         }
     };
+
+    const [stats, setStats] = useState({
+        total: 0,
+        individual: 0,
+        group: 0,
+        attendance: 0,
+        subjects: [], // Инициализация как пустой массив
+        totalHours: 0
+    });
+
+
+    const fetchStats = async () => {
+        try {
+            const response = await fetch('http://localhost:3001/api/schedules/stats');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const allStats = await response.json();
+
+            const firstDay = new Date(selectedYear, selectedMonth, 1);
+            const lastDay = new Date(selectedYear, selectedMonth + 1, 0);
+
+            // Фильтрация данных на клиенте
+            const filteredStats = allStats.filter(stat => {
+                const statDate = new Date(stat.date);
+                return statDate >= firstDay && statDate <= lastDay;
+            });
+
+            // Подсчет статистики на основе отфильтрованных данных
+            let totalSessions = 0;
+            let attendedSessions = 0;
+
+            filteredStats.forEach(stat => {
+                if (stat.student_id) {
+                    // Индивидуальное занятие
+                    totalSessions++;
+                    if (stat.attendance === true) {
+                        attendedSessions++;
+                    }
+                } else if (stat.group_id && stat.attendance && typeof stat.attendance === 'object') {
+                    // Групповое занятие
+                    const students = Object.keys(stat.attendance);
+                    totalSessions += students.length;
+                    attendedSessions += students.filter(studentId => stat.attendance[studentId] === true).length;
+                }
+            });
+
+            const attendancePercentage = totalSessions > 0 ? (attendedSessions / totalSessions) * 100 : 0;
+
+            // Подсчет часов
+            const totalHours = filteredStats.reduce((sum, stat) => sum + stat.duration, 0) / 60;
+
+            // Подсчет по предметам
+            const subjects = filteredStats.reduce((acc, stat) => {
+                const subject = stat.subject;
+                acc[subject] = (acc[subject] || 0) + 1;
+                return acc;
+            }, {});
+
+            setStats({
+                total: filteredStats.length,
+                individual: filteredStats.filter(stat => stat.student_id !== null).length,
+                group: filteredStats.filter(stat => stat.group_id !== null).length,
+                attendance: attendancePercentage,
+                subjects: Object.entries(subjects).map(([subject, count]) => ({ _id: subject, count })),
+                totalHours
+            });
+        } catch (error) {
+            console.error('Ошибка при загрузке статистики:', error);
+        }
+    };
+
+    useEffect(() => {
+        fetchStats();
+    }, [selectedMonth, selectedYear]);
 
     const handleCreateGroup = async () => {
         const groupName = prompt("Введите название группы:");
@@ -321,13 +406,61 @@ const Editing = () => {
                             {activeImage === 3 && (
                                 <GroupEditor
                                     selectedGroup={selectedGroup}
-                                    setSelectedGroup={setSelectedGroup} // Убедитесь, что эта функция передается
+                                    setSelectedGroup={setSelectedGroup}
                                     groups={groups}
                                     setGroups={setGroups}
                                     users={users}
                                     setUsers={setUsers}
                                 />
                             )}
+                        </div>
+                    </div>
+                    <div className="stats-container">
+                        <div className="stats-card">
+                            <div className="stats-controls">
+                                <select value={selectedMonth} onChange={(e) => setSelectedMonth(Number(e.target.value))}>
+                                    {months.map((month, index) => (
+                                        <option key={index} value={index}>{month}</option>
+                                    ))}
+                                </select>
+                                <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))}>
+                                    {years.map((year) => (
+                                        <option key={year} value={year}>{year}</option>
+                                    ))}
+                                </select>
+                                <button onClick={fetchStats} className="refresh-button">
+                                    Обновить
+                                </button>
+                            </div>
+                            <h3>Статистика занятий за {months[selectedMonth]} {selectedYear}</h3>
+                            <div className="stats-grid">
+                                <div className="stat-item">
+                                    <span className="stat-value">{stats.total}</span>
+                                    <span className="stat-label">Всего занятий</span>
+                                </div>
+                                <div className="stat-item">
+                                    <span className="stat-value">{stats.individual}</span>
+                                    <span className="stat-label">Индивидуальных</span>
+                                </div>
+                                <div className="stat-item">
+                                    <span className="stat-value">{stats.group}</span>
+                                    <span className="stat-label">Групповых</span>
+                                </div>
+                                <div className="stat-item">
+                                    <span className="stat-value">{Math.round(stats.attendance)}%</span>
+                                    <span className="stat-label">Средняя посещаемость</span>
+                                </div>
+                                <div className="stat-item">
+                                    <span className="stat-value">{stats.totalHours}</span>
+                                    <span className="stat-label">Общее количество часов</span>
+                                </div>
+                                {stats.subjects && [...stats.subjects].sort((a, b) => a._id.localeCompare(b._id)).map((subject, index) => (
+                                    <div key={index} className="stat-item">
+                                        <span className="stat-value">{subject.count}</span>
+                                        <span className="stat-label">{subject._id}</span>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </div>

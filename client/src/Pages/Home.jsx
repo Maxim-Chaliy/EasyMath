@@ -6,6 +6,7 @@ import Group9 from "../img/Group9.png";
 import Check from "../img/check.png";
 import Header from '../Components/Header';
 import Footer from '../Components/Footer';
+import { Link, useNavigate } from "react-router-dom";
 
 const Home = () => {
   useEffect(() => {
@@ -47,7 +48,7 @@ const Home = () => {
                   Подготовим к ЕГЭ 2025 на высокий балл, поможем выбрать профессию мечты и поступить в вуз на бюджет
                 </p>
                 <div className="hero-actions">
-                  <a href="/online-repetitor/EGE.html" className="cta-button">НАЧАТЬ ПОДГОТОВКУ</a>
+                  <Link to="/registration"  className="cta-button">НАЧАТЬ ПОДГОТОВКУ</Link>
                   <img src={Group9} alt="Декоративный элемент" className="hero-decoration decorative-element" />
                 </div>
               </div>
