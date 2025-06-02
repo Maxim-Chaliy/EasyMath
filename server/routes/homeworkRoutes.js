@@ -3,7 +3,7 @@ const router = express.Router();
 const homeworkController = require('../controllers/homeworkController');
 
 // Получение домашних заданий для студента
-router.get('/student/:studentId', homeworkController.getHomeworkByStudentId);
+router.get('/:studentId', homeworkController.getHomeworkByStudentId);
 
 // Получение домашних заданий для группы
 router.get('/group/:groupId', homeworkController.getHomeworkByGroupId);
@@ -17,7 +17,7 @@ router.post('/upload-answer', homeworkController.uploadAnswer);
 // Обновление оценки домашнего задания
 router.put('/:id/grade', homeworkController.updateGrade);
 
-// Обновление оценки конкретного студента группе
+// Обновление оценки конкретного студента для домашнего задания
 router.put('/:id/grade/:studentId', homeworkController.updateStudentGrade);
 
 module.exports = router;

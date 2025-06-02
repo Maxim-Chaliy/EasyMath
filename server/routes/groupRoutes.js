@@ -23,4 +23,6 @@ router.put('/:id', groupController.updateGroup);
 // Удаление группы
 router.delete('/:id', groupController.deleteGroup);
 
+router.get('/student/:studentId', groupController.getGroupsByStudentId);
+
 module.exports = router;

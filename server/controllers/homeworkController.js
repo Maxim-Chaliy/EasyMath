@@ -17,6 +17,30 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
+// Получение домашних заданий для студента
+exports.getHomeworkByStudentId = async (req, res) => {
+    try {
+        const { studentId } = req.params;
+        const homework = await Homework.find({ student_id: studentId })
+            .sort({ dueDate: 1 });
+        res.json(homework);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
+
+// Получение домашних заданий для группы
+exports.getHomeworkByGroupId = async (req, res) => {
+    try {
+        const { groupId } = req.params;
+        const homework = await Homework.find({ group_id: groupId })
+            .sort({ dueDate: 1 });
+        res.json(homework);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
+
 // Добавление нового домашнего задания
 exports.addHomeworkItem = [
     upload.array('files'),
@@ -71,33 +95,6 @@ exports.uploadAnswer = [
     }
 ];
 
-// Получение домашнего задания для конкретного студента
-exports.getHomeworkByStudentId = async (req, res) => {
-    try {
-        const { studentId } = req.params;
-        const homeworks = await Homework.find({ student_id: studentId })
-            .sort({ dueDate: 1 }); // Сортировка по дате выполнения
-        res.json(homeworks);
-    } catch (err) {
-        console.error('Error fetching homework:', err);
-        res.status(500).json({ error: 'Ошибка при получении домашнего задания' });
-    }
-};
-
-
-// Получение домашних заданий для группы
-exports.getHomeworkByGroupId = async (req, res) => {
-    try {
-        const { groupId } = req.params;
-        const homeworks = await Homework.find({ group_id: groupId })
-            .sort({ dueDate: 1 }); // Сортировка по дате выполнения
-        res.json(homeworks);
-    } catch (err) {
-        console.error('Error fetching group homework:', err);
-        res.status(500).json({ error: 'Ошибка при получении домашних заданий для группы' });
-    }
-};
-
 // Обновление оценки домашнего задания
 exports.updateGrade = async (req, res) => {
     try {
@@ -121,7 +118,7 @@ exports.updateGrade = async (req, res) => {
     }
 };
 
-// Обновление оценки студента для домашнего задания
+// Обновление оценки конкретного студента для домашнего задания
 exports.updateStudentGrade = async (req, res) => {
     try {
         const { id, studentId } = req.params;

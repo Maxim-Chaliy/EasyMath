@@ -136,3 +136,13 @@ exports.deleteGroup = async (req, res) => {
         res.status(400).json({ message: 'Ошибка при удалении группы', error: error.message });
     }
 };
+
+exports.getGroupsByStudentId = async (req, res) => {
+    try {
+        const { studentId } = req.params;
+        const groups = await Group.find({ students: studentId });
+        res.json(groups);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
