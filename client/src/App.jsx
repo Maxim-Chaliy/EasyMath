@@ -20,7 +20,7 @@ import AdminRoute from './Components/AdminRoute';
 import PrivateRoute from './Components/PrivateRoute';
 import ForgotPassword from './Pages/ForgotPassword';
 import ResetPassword from './Pages/ResetPassword';
-
+import ConfirmEmail from './Pages/ConfirmEmail';
 const App = () => {
   return (
     <Router>
@@ -36,6 +36,7 @@ const App = () => {
         <Route path="/forgot-password" element={<ForgotPassword/>} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/educmat" element={<EducMat/>} />
+        <Route path="/confirm-email" element={<ConfirmEmail />} />
 
         {/* Защищенные маршруты для авторизованных пользователей */}
         <Route element={<PrivateRoute />}>
