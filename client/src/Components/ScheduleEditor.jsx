@@ -150,6 +150,7 @@ const ScheduleEditor = ({ selectedUser, selectedGroup }) => {
     const handleAddToHomework = async () => {
         const dueDateInput = document.getElementById('dueDateInput').value;
         const filesInput = document.getElementById('filesInput').files;
+        const commentInput = document.getElementById('commentInput').value;
 
         if (!dueDateInput || filesInput.length === 0) {
             alert('Пожалуйста, укажите дату выполнения и прикрепите файлы');
@@ -161,6 +162,7 @@ const ScheduleEditor = ({ selectedUser, selectedGroup }) => {
         if (selectedGroup) formData.append('group_id', selectedGroup._id);
         formData.append('day', getShortDayOfWeek(new Date(dueDateInput)));
         formData.append('dueDate', dueDateInput);
+        formData.append('comment', commentInput);
 
         for (let i = 0; i < filesInput.length; i++) {
             formData.append('files', filesInput[i]);
@@ -182,6 +184,7 @@ const ScheduleEditor = ({ selectedUser, selectedGroup }) => {
             setIsAddingHomework(false);
             document.getElementById('dueDateInput').value = '';
             document.getElementById('filesInput').value = '';
+            document.getElementById('commentInput').value = '';
         } catch (error) {
             console.error('Ошибка при добавлении домашнего задания:', error);
             alert(error.message || 'Не удалось добавить домашнее задание');
@@ -514,18 +517,18 @@ const ScheduleEditor = ({ selectedUser, selectedGroup }) => {
                     <div className="add-lesson-form">
                         <div className="form-group">
                             <label htmlFor="dateInput">Дата</label>
-                            <input type="date" id="dateInput" className="form-input" />
+                            <input type="date" id="dateInput" className="scheduleeditor-form-input" />
                         </div>
                         <div className="form-group">
                             <label htmlFor="timeInput">Время начала</label>
-                            <input type="time" id="timeInput" className="form-input" />
+                            <input type="time" id="timeInput" className="scheduleeditor-form-input" />
                         </div>
                         <div className="form-group">
                             <label htmlFor="durationInput">Продолжительность (мин)</label>
                             <input
                                 type="number"
                                 id="durationInput"
-                                className="form-input"
+                                className="scheduleeditor-form-input"
                                 min="30"
                                 step="30"
                                 defaultValue="60"
@@ -533,7 +536,7 @@ const ScheduleEditor = ({ selectedUser, selectedGroup }) => {
                         </div>
                         <div className="form-group">
                             <label htmlFor="exampleSelect">Предмет</label>
-                            <select id="exampleSelect" className="form-input">
+                            <select id="exampleSelect" className="scheduleeditor-form-input">
                                 <option value="">Выберите предмет</option>
                                 <option value="Алгебра">Алгебра</option>
                                 <option value="Геометрия">Геометрия</option>
@@ -547,7 +550,7 @@ const ScheduleEditor = ({ selectedUser, selectedGroup }) => {
                             <input
                                 type="text"
                                 id="descriptionInput"
-                                className="form-input"
+                                className="scheduleeditor-form-input"
                                 placeholder="Дополнительная информация"
                             />
                         </div>
@@ -802,7 +805,11 @@ const ScheduleEditor = ({ selectedUser, selectedGroup }) => {
                         <div className="add-homework-form">
                             <div className="form-group">
                                 <label htmlFor="dueDateInput">Дата выполнения</label>
-                                <input type="date" id="dueDateInput" className="form-input" />
+                                <input type="date" id="dueDateInput" className="scheduleeditor-form-input" />
+                            </div>
+                            <div className="form-group">
+                                <label htmlFor="commentInput">Комментарий</label>
+                                <input type="text" id="commentInput" className="scheduleeditor-form-input" placeholder="Введите комментарий" />
                             </div>
                             <div className="form-group file-group">
                                 <label htmlFor="filesInput">Файлы задания</label>
@@ -833,6 +840,7 @@ const ScheduleEditor = ({ selectedUser, selectedGroup }) => {
                                     <th>День</th>
                                     <th>Выполнить до</th>
                                     <th>Файлы задания</th>
+                                    <th>Комментарий</th>
                                     <th>Ответ</th>
                                     <th>Оценка</th>
                                     <th style={{ width: '80px' }}>Действия</th>
@@ -853,16 +861,16 @@ const ScheduleEditor = ({ selectedUser, selectedGroup }) => {
                                             <td>{item.day}</td>
                                             <td>{formatDate(item.dueDate)}</td>
                                             <td>
-                                                <div className="files-list">
+                                                <div className="scheduleeditor-files-list">
                                                     {item.files.map((file, idx) => (
-                                                        <div key={idx} className="file-item">
+                                                        <div key={idx} className="scheduleeditor-file-item">
                                                             {getFileIcon(file)}
                                                             <a
                                                                 href={`http://localhost:3001/homework/${file}`}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
                                                                 download
-                                                                className="file-link"
+                                                                className="scheduleeditor-file-link"
                                                             >
                                                                 {file}
                                                             </a>
@@ -870,18 +878,19 @@ const ScheduleEditor = ({ selectedUser, selectedGroup }) => {
                                                     ))}
                                                 </div>
                                             </td>
+                                            <td>{item.comment || '-'}</td>
                                             <td>
                                                 {item.answer && item.answer.length > 0 ? (
-                                                    <div className="files-list">
+                                                    <div className="scheduleeditor-files-list">
                                                         {item.answer.map((answer, idx) => (
-                                                            <div key={idx} className="file-item">
+                                                            <div key={idx} className="scheduleeditor-file-item">
                                                                 {getFileIcon(answer.file)}
                                                                 <a
                                                                     href={`http://localhost:3001/homework/${answer.file}`}
                                                                     target="_blank"
                                                                     rel="noopener noreferrer"
                                                                     download
-                                                                    className="file-link"
+                                                                    className="scheduleeditor-file-link"
                                                                 >
                                                                     {answer.file}
                                                                 </a>
@@ -923,7 +932,7 @@ const ScheduleEditor = ({ selectedUser, selectedGroup }) => {
                                                     </div>
                                                 ) : (
                                                     <div className="grade-display">
-                                                        {item.grades?.[selectedUser._id] ? (
+                                                        {item.grades?.[selectedUser?._id] ? (
                                                             <span className={`grade-badge grade-${item.grades[selectedUser._id]}`}>
                                                                 {item.grades[selectedUser._id]}
                                                             </span>
