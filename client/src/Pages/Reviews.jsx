@@ -6,7 +6,7 @@ import '../Components/style/reviews.css';
 import { format } from 'date-fns';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
-import { FaQuoteLeft } from 'react-icons/fa';
+import { FaQuoteLeft, FaPencilAlt } from 'react-icons/fa';
 
 const Reviews = () => {
     const [comments, setComments] = useState([]);
@@ -40,6 +40,10 @@ const Reviews = () => {
         setPage(newPage);
     };
 
+    const handleLeaveReview = () => {
+        window.open('https://vk.com/topic-216067267_49113818?offset=0', '_blank');
+    };
+
     return (
         <>
             <Header />
@@ -55,6 +59,16 @@ const Reviews = () => {
                     <div className="block-reviews">
                         <div className="reviews-container">
                             {error && <div className="error-message">{error}</div>}
+
+                            <div className="leave-review-button-container">
+                                <button 
+                                    className="leave-review-button"
+                                    onClick={handleLeaveReview}
+                                >
+                                    <FaPencilAlt className="review-icon" />
+                                    Оставить отзыв
+                                </button>
+                            </div>
 
                             <div className="comments-list">
                                 {loading ? (
